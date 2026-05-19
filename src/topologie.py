@@ -98,3 +98,92 @@ class Topologie:
                         file.append((voisin, chemin + [voisin]))
         
         return None
+
+    def envoyer_paquet(self, paquet):
+        source = self.trouver_equipement_par_ip(paquet.ip_source)
+        destination = self.trouver_equipement_par_ip(paquet.ip_destination)
+
+        if source is None:
+            paquet.marquer_perdu()
+            return {
+                "succes": False,
+                "message": "Source introuvable",
+                "chemin": [],
+                "latence": 0,
+                "debit": 0
+            }
+
+        if destination is None:
+            paquet.marquer_perdu()
+            return {
+                "succes": False,
+                "message": "Destination introuvable",
+                "chemin": [],
+                "latence": 0,
+                "debit": 0
+            }
+
+        chemin = self.trouver_chemin(source, destination)
+
+        if chemin is None:
+            paquet.marquer_perdu()
+            return {
+                "succes": False,
+                "message": "Destination inatteignable",
+                "chemin": [],
+                "latence": 0,
+                "debit": 0
+            }
+
+        for equipement in chemin:
+            paquet.ajouter_saut(equipement)
+
+            if equipement.__class__.__name__ == "Firewall":
+                autorise = equipement.filtrer(paquet)
+                if not autorise:
+                    paquet.marquer_perdu()
+                    return {
+                        "succes": False,
+                        "message": "Paquet bloqué par le firewall",
+                        "chemin": paquet.trajet,
+                        "latence": self.calculer_latence_chemin(paquet.trajet),
+                        "debit": self.calculer_debit_chemin(paquet.trajet)
+                    }
+
+        return {
+            "succes": True,
+            "message": "Paquet transmis avec succès",
+            "chemin": paquet.trajet,
+            "latence": self.calculer_latence_chemin(chemin),
+            "debit": self.calculer_debit_chemin(chemin)
+        }
+
+    def obtenir_lien(self, equipement1, equipement2):
+        for lien in self.liens:
+            if (lien.equipement1 == equipement1 and lien.equipement2 == equipement2) or (lien.equipement1 == equipement2 and lien.equipement2 == equipement1):
+                return lien
+
+        return lien
+
+    def calculer_latence_chemin(self, chemin):
+        latence_totale = 0
+
+        for i in range(len(chemin) - 1):
+            lien = self.obtenir_lien(chemin[i], chemin[i+1])
+            if lien:
+                latence_totale += lien.latence
+
+        return latence_totale
+
+    def calculer_debit_chemin(self, chemin):
+        debits = []
+
+        for i in range(len(chemin) - 1):
+            lien = self.obtenir_lien(chemin[i], chemin[i+1])
+            if lien:
+                debits.append(lien.bande_passante)
+
+        if not debits:
+            return 0
+
+        return min(debits)
