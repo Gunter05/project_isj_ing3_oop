@@ -1,0 +1,8 @@
+====== RAPPORT SIMNET =====
+
+Paquets envoyés : 1
+Paquets perdus : 0
+Débit cumulé : 500 octets
+
+===== HISTORIQUE =====
+2026-05-21 00:58:00.998650 | 192.168.1.1 -> 192.168.1.2 | TCP | 500 octets

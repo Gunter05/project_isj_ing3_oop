@@ -48,7 +48,7 @@ class MoniteurReseau:
     
     #Affichage des derniers évènements
     def afficher_historique(self):
-        printf("\n===== HISTORIQUE =====")
+        print("\n===== HISTORIQUE =====")
         for event in self.historique:
             print(
                 f"{event['date']} | "
@@ -82,6 +82,34 @@ class MoniteurReseau:
         
         print("Rapport généré avec succès.")
         
+#Test du fichier
+if __name__ == "__main__":
+    class FauxPaquet:
+        def __init__(self):
+            self.source = "192.168.1.1"
+            self.destination = "192.168.1.2"
+            self.protocole = "TCP"
+            self.taille = 500
+    
+    #Création du moniteur
+    moniteur = MoniteurReseau()
+
+    #Création du paquet de test
+    paquet = FauxPaquet()
+
+    #Enregistrement du paquet
+    moniteur.enregistrer_paquet(paquet)
+
+    #Affichage des stats
+    moniteur.afficher_statistiques()
+
+    #Historique
+    moniteur.afficher_historique()
+
+    #Rapport
+    moniteur.generer_rapport()
+
+
 
 
 
