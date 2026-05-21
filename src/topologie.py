@@ -3,11 +3,11 @@ from collections import deque
 class Lien:
     """ Représente un lien physique entre deux équipements """
 
-    def __init__(self, equipement1, equipement2, bande_passante, latence):
+    def __init__(self, equipement1, equipement2, bande_passante=100, latence=5):
         self.equipement1 = equipement1
         self.equipement2 = equipement2
-        self.latence = latence
-        self.bande_passante = bande_passante
+        self.latence = latence # en ms
+        self.bande_passante = bande_passante # en Mbps
         self.actif = True
 
     def connecte(self, equipement):
@@ -57,16 +57,42 @@ class Topologie:
                 return equipement
         return None
 
-    def connecter(self, nom1, nom2, bande_passante, latence):
+    def connecter(self, nom1, nom2, bande_passante=None, latence=None):
         equipement1 = self.trouver_equipement_par_nom(nom1)
         equipement2 = self.trouver_equipement_par_nom(nom2)
 
         if equipement1 is None or equipement2 is None:
             return False
 
+        if bande_passante is None or latence is None:
+            bande_passante, latence = self.determiner_caracteristiques_lien(
+                equipement1,
+                equipement2
+            )
+
         lien = Lien(equipement1, equipement2, bande_passante, latence)
         self.liens.append(lien)
         return True
+
+    def determiner_caracteristiques_lien(self, equipement1, equipement2):
+        noms_classes = {
+            equipement1.__class__.__name__,
+            equipement2.__class__.__name__
+        }
+
+        if "PointAccesWifi" in noms_classes:
+            return 54, 15
+
+        if "Switch" in noms_classes and "Serveur" in noms_classes:
+            return 1000, 2
+
+        if "Switch" in noms_classes and "Routeur" in noms_classes:
+            return 1000, 5
+
+        if "Routeur" in noms_classes:
+            return 100, 10
+
+        return 100, 5
 
     def obtenir_voisins(self, equipement):
         voisins = []
