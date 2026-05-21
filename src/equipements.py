@@ -7,6 +7,22 @@ class Equipement(ABC):
         self._marque = marque
         self._statut = False
 
+    @property
+    def nom(self):
+        return self._nom
+
+    @property
+    def adresse_ip(self):
+        return self._adresse_ip
+
+    @property
+    def marque(self):
+        return self._marque
+
+    @property
+    def statut(self):
+        return self._statut
+
     def activer(self):
         """Active l'équipement"""
         self._statut = True

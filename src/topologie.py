@@ -3,7 +3,7 @@ from collections import deque
 class Lien:
     """ Représente un lien physique entre deux équipements """
 
-    def __init__(self, equipement1, equipement2, latence, bande_passante):
+    def __init__(self, equipement1, equipement2, bande_passante, latence):
         self.equipement1 = equipement1
         self.equipement2 = equipement2
         self.latence = latence
@@ -92,11 +92,11 @@ class Topologie:
             if equipement_actuel == destination:
                 return chemin
 
-                for voisin in self.obtenir_voisins(equipement_actuel):
-                    if voisin not in visites:
-                        visites.add(voisin)
-                        file.append((voisin, chemin + [voisin]))
-        
+            for voisin in self.obtenir_voisins(equipement_actuel):
+                if voisin not in visites:
+                    visites.add(voisin)
+                    file.append((voisin, chemin + [voisin]))
+
         return None
 
     def envoyer_paquet(self, paquet):
@@ -160,10 +160,14 @@ class Topologie:
 
     def obtenir_lien(self, equipement1, equipement2):
         for lien in self.liens:
-            if (lien.equipement1 == equipement1 and lien.equipement2 == equipement2) or (lien.equipement1 == equipement2 and lien.equipement2 == equipement1):
+            if (
+                lien.equipement1 == equipement1 and lien.equipement2 == equipement2
+            ) or (
+                lien.equipement1 == equipement2 and lien.equipement2 == equipement1
+            ):
                 return lien
 
-        return lien
+        return None
 
     def calculer_latence_chemin(self, chemin):
         latence_totale = 0

@@ -107,7 +107,7 @@ class Firewall(Equipement):
     
     def __init__(self, adresse_ip, nom, marque):
         """ Initialise le Firewall avec ses attributs d'équipement et ses modules de sécurité. """
-        super().__init__(adresse_ip, nom, marque)
+        super().__init__(nom, adresse_ip, marque)
         self.regles = []  # Liste pour stocker les instances de RegleFiltrage, ce sont les regles du firewall
         self.journal = JournalFirewall()  # Module de logs pour enregistrer les décisions de filtrage et les événements importants
         self.auth = Authentification()  # Module de sécurité d'accès pour protéger la modification des règles
