@@ -50,11 +50,36 @@ def main():
             routeur.activer()
             topologie.ajouter_equipement(routeur)
             print("Routeur ajouté avec succès.")
+#option 2           
         elif choix == "2":
             nom1 = input("Premier équipement : ")
             nom2 = input("Second équipement : ")
-            bande_passante = int(input("Bande passante : "))
+            #Vérification de la présence des équipements
+            if(topologie.trouver_equipement_par_nom(nom1)== None or topologie.trouver_equipement_par_nom(nom2) == None):
+                print("Ces équipements n'appartiennent pas au réseau\n")
+            #création du lien
+            succes = topologie.connecter(nom1, nom2)
+            if succes:
+                print("connexion réussie\n")
+            else:
+                print("connexion impossible\n")
+#option 3
+        elif choix == "3":
+            if len(topologie.equipements) == 0:
+                print("Aucun équipement dans la topologie.")
+            else:
+                print("\n===== TOPOLOGIE =====")
+
+            for equipement in topologie.equipements:
+                print(equipement)
+#option 4
+        elif choix == "4":
+            source = input("Adresse IP source : ")
+            destination = input("Adresse IP destination : ")
             
+
+
+
 
 
 
