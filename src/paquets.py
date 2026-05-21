@@ -4,6 +4,14 @@ except ImportError:
     from enum import Enum
 
     class Protocole(Enum):
+        """
+        Représente les protocoles réseau pris en charge par SIMNet.
+
+        Attributs:
+            TCP (str): Protocole de contrôle de transmission (orienté connexion).
+            UDP (str): Protocole de datagramme utilisateur (non orienté connexion).
+            ICMP (str): Protocole de message de contrôle Internet (utilisé pour ping).
+        """
         TCP = "TCP"
         UDP = "UDP"
         ICMP = "ICMP"
@@ -15,6 +23,17 @@ class Paquet:
 
     Le protocole, la taille et le port peuvent être générés automatiquement
     à partir du type de service demandé.
+
+    Attributs:
+        adresse_source (str): L'adresse IP de l'équipement émetteur.
+        adresse_destination (str): L'adresse IP de l'équipement récepteur.
+        service (str): Le service associé au paquet (ex. 'web', 'https', 'ping', 'dns', 'fichier').
+        protocole (Protocole/str): Le protocole de transport utilisé.
+        taille (int): La taille du paquet en octets.
+        priorite (int): La priorité du paquet (de 1 à 5).
+        port_destination (int): Le port réseau de destination.
+        trajet (list): Liste des équipements traversés par le paquet.
+        est_perdu (bool): Indique si le paquet a été perdu en cours de route.
     """
 
     SERVICES = {
@@ -60,6 +79,27 @@ class Paquet:
         priorite=None,
         port_destination=None
     ):
+        """
+        Initialise un nouveau paquet réseau avec ses caractéristiques.
+
+        Si des paramètres spécifiques (protocole, taille, priorite, port_destination)
+        ne sont pas fournis, ils seront déduits du type de service indiqué.
+
+        Entrées:
+            adresse_source (str): Adresse IP de l'expéditeur.
+            adresse_destination (str): Adresse IP du destinataire.
+            service (str, optionnel): Type de service réseau (ex: "web", "https", "ping", "dns", "fichier"). Par défaut "web".
+            protocole (Protocole, optionnel): Protocole de transport (TCP, UDP, ICMP). Par défaut None (déduit du service).
+            taille (int, optionnel): Taille du paquet en octets. Par défaut None (déduite du service).
+            priorite (int, optionnel): Priorité du paquet de 1 (faible) à 5 (haute). Par défaut None (déduite du service).
+            port_destination (int, optionnel): Port de destination. Par défaut None (déduit du service).
+
+        Sortie:
+            None (Initialise l'instance).
+
+        Exceptions:
+            ValueError: Si la priorité finale n'est pas comprise entre 1 et 5.
+        """
         self.adresse_source = adresse_source
         self.adresse_destination = adresse_destination
         self.service = service.lower()
@@ -82,12 +122,39 @@ class Paquet:
         self.est_perdu = False
 
     def ajouter_saut(self, equipement):
+        """
+        Ajoute un équipement réseau au trajet parcouru par le paquet.
+
+        Entrée:
+            equipement (Equipement): L'équipement réseau actuellement traversé.
+
+        Sortie:
+            None.
+        """
         self.trajet.append(equipement)
 
     def marquer_perdu(self):
+        """
+        Marque le paquet comme étant perdu ou bloqué lors de son acheminement.
+
+        Entrée:
+            Aucune.
+
+        Sortie:
+            None.
+        """
         self.est_perdu = True
 
     def __str__(self):
+        """
+        Retourne une représentation textuelle détaillée du paquet pour le débogage.
+
+        Entrée:
+            Aucune.
+
+        Sortie:
+            str: Description textuelle contenant le protocole, source, destination, service, taille, priorité et port.
+        """
         protocole = self.protocole.value if isinstance(self.protocole, Enum) else self.protocole
 
         return (
