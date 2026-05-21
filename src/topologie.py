@@ -100,8 +100,8 @@ class Topologie:
         return None
 
     def envoyer_paquet(self, paquet):
-        source = self.trouver_equipement_par_ip(paquet.ip_source)
-        destination = self.trouver_equipement_par_ip(paquet.ip_destination)
+        source = self.trouver_equipement_par_ip(paquet.adresse_source)
+        destination = self.trouver_equipement_par_ip(paquet.adresse_destination)
 
         if source is None:
             paquet.marquer_perdu()
@@ -138,7 +138,7 @@ class Topologie:
         for equipement in chemin:
             paquet.ajouter_saut(equipement)
 
-            if equipement.__class__.__name__ == "Firewall":
+            if hasattr(equipement, "filtrer"):
                 autorise = equipement.filtrer(paquet)
                 if not autorise:
                     paquet.marquer_perdu()

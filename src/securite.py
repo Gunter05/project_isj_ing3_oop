@@ -91,7 +91,7 @@ class Authentification:
 # ==========================================
 try:
     # On tente d'importer la classe mère Equipement rédigée par le Membre A
-    from src.equipements import Equipement
+    from equipements import Equipement
 except ImportError:
     # Si le fichier equipements.py n'est pas encore prêt, on simule une classe temporaire pour éviter l'erreur de Pylance
     class Equipement:

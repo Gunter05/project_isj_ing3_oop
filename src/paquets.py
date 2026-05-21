@@ -1,12 +1,14 @@
 
 
 class Paquet:
-    def __init__(self, ip_source, ip_destination, protocole, taille, priorite):
-        self.ip_source = ip_source
-        self.ip_destination = ip_destination
+    def __init__(self, adresse_source, adresse_destination, protocole, taille, priorite, port_destination=None):
+        self.adresse_source = adresse_source
+        self.adresse_destination = adresse_destination
         self.protocole = protocole
         self.taille = taille
         self.priorite = priorite
+        self.port_destination = port_destination
+
         self.trajet = []
         self.est_perdu = False
 
@@ -17,4 +19,4 @@ class Paquet:
         self.est_perdu = True
 
     def __str__(self):
-        return f"{self.protocole} {self.ip_source} -> {self.ip_destination}"
+        return f"{self.protocole} {self.adresse_source} -> {self.adresse_destination}"
