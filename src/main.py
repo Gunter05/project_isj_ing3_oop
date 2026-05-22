@@ -1,7 +1,3 @@
-# ==============================
-# IMPORTATIONS
-# ==============================
-
 from datetime import datetime
 from enum import Enum
 
@@ -12,679 +8,636 @@ from securite import Firewall as FirewallSecurite, RegleFiltrage, Protocole, Act
 from moniteur import MoniteurReseau
 
 
-# ==============================
-# FIREWALL COMPATIBLE AVEC ABC
-# ==============================
-# La classe Firewall de securite.py hérite de Equipement.
-# Si Equipement impose afficher_infos() en abstractmethod,
-# il faut que le firewall possède aussi afficher_infos().
-
 class FirewallPrincipal(FirewallSecurite):
-    """Firewall principal utilisé dans l'interface console."""
+    """
+    Firewall principal utilisé par SIMNet.
+
+    Cette classe complète le Firewall de securite.py avec afficher_infos(),
+    car Equipement impose cette méthode abstraite.
+    """
 
     def afficher_infos(self):
-        """Affiche les informations du firewall."""
         print(f"Nom : {self.nom}")
         print(f"IP : {self.adresse_ip}")
         print(f"Marque : {self.marque}")
-        statut = "actif" if self.statut else "inactif"
-        print(f"Statut : {statut}")
+        print(f"Statut : {'actif' if self.statut else 'inactif'}")
         print(f"Nombre de règles : {len(self.regles)}")
         print(f"Nombre de logs : {len(self.journal.logs)}")
 
 
-# ==============================
-# FONCTIONS UTILITAIRES
-# ==============================
+class SimulateurSIMNet:
+    """
+    Classe principale du simulateur SIMNet.
 
-def saisir_entier(message, valeur_defaut=None):
-    """Demande un entier à l'utilisateur avec gestion d'erreur."""
-    while True:
-        valeur = input(message)
+    Elle gère :
+    - les équipements ;
+    - la topologie ;
+    - l'envoi des paquets ;
+    - la sécurité ;
+    - le monitoring ;
+    - l'interface console.
+    """
 
-        if valeur == "" and valeur_defaut is not None:
-            return valeur_defaut
+    def __init__(self):
+        self.topologie = Topologie()
+        self.moniteur = MoniteurReseau()
+        self.firewall_principal = None
+        self.initialiser_reseau_demo()
 
-        try:
-            return int(valeur)
-        except ValueError:
-            print("Veuillez entrer un nombre entier valide.")
+    # =========================
+    # OUTILS
+    # =========================
 
+    def pause(self):
+        input("\nAppuyez sur Entrée pour continuer...")
 
-def pause():
-    """Pause simple pour améliorer la lisibilité."""
-    input("\nAppuyez sur Entrée pour continuer...")
+    def saisir_entier(self, message, valeur_defaut=None):
+        while True:
+            valeur = input(message)
 
+            if valeur == "" and valeur_defaut is not None:
+                return valeur_defaut
 
-def afficher_liste_equipements(topologie):
-    """Affiche tous les équipements de la topologie."""
-    if not topologie.equipements:
-        print("Aucun équipement dans la topologie.")
-        return
+            try:
+                return int(valeur)
+            except ValueError:
+                print("Veuillez entrer un entier valide.")
 
-    print("\n===== ÉQUIPEMENTS =====")
-    for equipement in topologie.equipements:
-        print(f"- {equipement}")
+    def afficher_menu(self, titre, options):
+        print(f"\n===== {titre} =====")
+        for cle, texte in options.items():
+            print(f"{cle}. {texte}")
 
+    def choisir_protocole(self):
+        options = {
+            "1": Protocole.TCP,
+            "2": Protocole.UDP,
+            "3": Protocole.ICMP,
+            "4": None
+        }
 
-def afficher_liste_liens(topologie):
-    """Affiche tous les liens de la topologie."""
-    if not topologie.liens:
-        print("Aucun lien dans la topologie.")
-        return
+        print("\n1. TCP")
+        print("2. UDP")
+        print("3. ICMP")
+        print("4. Tous")
 
-    print("\n===== LIENS =====")
-    for lien in topologie.liens:
-        print(
-            f"- {lien.equipement1.nom} <--> {lien.equipement2.nom} "
-            f"({lien.bande_passante} Mbps, {lien.latence} ms)"
-        )
+        return options.get(input("Protocole : "), None)
 
+    def choisir_action(self):
+        print("\n1. Autoriser")
+        print("2. Bloquer")
 
-def choisir_protocole():
-    """Permet de choisir un protocole pour une règle de filtrage."""
-    print("\nProtocole :")
-    print("1. TCP")
-    print("2. UDP")
-    print("3. ICMP")
-    print("4. Tous les protocoles")
+        choix = input("Action : ")
 
-    choix = input("Choix : ")
+        if choix == "1":
+            return Action.AUTORISER
 
-    if choix == "1":
-        return Protocole.TCP
-    if choix == "2":
-        return Protocole.UDP
-    if choix == "3":
-        return Protocole.ICMP
-    if choix == "4":
-        return None
-
-    print("Choix invalide. Tous les protocoles seront pris par défaut.")
-    return None
-
-
-def choisir_action():
-    """Permet de choisir l'action d'une règle de filtrage."""
-    print("\nAction :")
-    print("1. Autoriser")
-    print("2. Bloquer")
-
-    choix = input("Choix : ")
-
-    if choix == "1":
-        return Action.AUTORISER
-    if choix == "2":
         return Action.BLOQUER
 
-    print("Choix invalide. Action BLOQUER prise par défaut.")
-    return Action.BLOQUER
+    # =========================
+    # INITIALISATION
+    # =========================
 
+    def initialiser_reseau_demo(self):
+        """
+        Crée un petit réseau de démonstration :
+        Client-1 -> SW-1 -> FW-1 -> SRV-1
+        """
 
-def enregistrer_resultat_moniteur(moniteur, paquet, resultat):
-    """
-    Enregistre le résultat d'un envoi de paquet dans le moniteur.
+        client = Terminal("Client-1", "192.168.1.10", "Dell", "PC", "Utilisateur")
+        switch = Switch("SW-1", "192.168.1.2", "Cisco", 24)
+        serveur = Serveur("SRV-1", "192.168.1.20", "HP")
+        firewall = FirewallPrincipal("192.168.1.254", "FW-1", "Cisco")
 
-    Cette fonction est compatible avec la classe Paquet actuelle :
-    adresse_source, adresse_destination, protocole, taille.
-    """
-    moniteur.paquets_envoyes += 1
+        for equipement in [client, switch, serveur, firewall]:
+            equipement.activer()
+            self.topologie.ajouter_equipement(equipement)
 
-    if not resultat["succes"]:
-        moniteur.paquets_perdus += 1
+        self.topologie.connecter("Client-1", "SW-1")
+        self.topologie.connecter("SW-1", "FW-1")
+        self.topologie.connecter("FW-1", "SRV-1")
 
-    moniteur.debit_total += paquet.taille
+        self.firewall_principal = firewall
 
-    protocole = paquet.protocole.value if isinstance(paquet.protocole, Enum) else paquet.protocole
+    # =========================
+    # ÉQUIPEMENTS
+    # =========================
 
-    evenement = {
-        "date": datetime.now(),
-        "source": paquet.adresse_source,
-        "destination": paquet.adresse_destination,
-        "protocole": protocole,
-        "taille": paquet.taille,
-        "message": resultat["message"]
-    }
+    def ajouter_equipement(self):
+        print("\nType d'équipement :")
+        print("1. Routeur")
+        print("2. Switch")
+        print("3. Serveur")
+        print("4. Terminal")
+        print("5. Point d'accès Wi-Fi")
+        print("6. Firewall")
 
-    moniteur.historique.append(evenement)
-
-    if len(moniteur.historique) > 10:
-        moniteur.historique.pop(0)
-
-
-# ==============================
-# MENUS
-# ==============================
-
-def menu_principal():
-    print("\n===== SIMNET =====")
-    print("1. Gestion des équipements")
-    print("2. Gestion du réseau")
-    print("3. Monitoring")
-    print("4. Sécurité")
-    print("5. Quitter")
-
-
-def menu_equipement():
-    print("\n===== GESTION DES ÉQUIPEMENTS =====")
-    print("1. Ajouter un équipement")
-    print("2. Afficher les informations d'un équipement")
-    print("3. Connecter deux équipements")
-    print("4. Supprimer un équipement")
-    print("5. Afficher tous les équipements")
-    print("0. Retour")
-
-
-def menu_reseau():
-    print("\n===== GESTION DU RÉSEAU =====")
-    print("1. Afficher la topologie")
-    print("2. Envoyer un paquet")
-    print("3. Désactiver un équipement")
-    print("4. Activer un équipement")
-    print("5. Supprimer une route")
-    print("6. Ajouter une interface")
-    print("7. Ajouter un VLAN")
-    print("8. Supprimer un VLAN")
-    print("9. Ajouter un service")
-    print("10. Supprimer un service")
-    print("0. Retour")
-
-
-def menu_monitoring():
-    print("\n===== MONITORING =====")
-    print("1. Afficher les statistiques")
-    print("2. Afficher l'historique")
-    print("3. Générer le rapport")
-    print("0. Retour")
-
-
-def menu_securite():
-    print("\n===== SÉCURITÉ =====")
-    print("1. Ajouter une règle de filtrage")
-    print("2. Afficher le journal du firewall")
-    print("3. Afficher les règles du firewall")
-    print("0. Retour")
-
-
-# ==============================
-# GESTION DES ÉQUIPEMENTS
-# ==============================
-
-def ajouter_equipement(topologie):
-    print("\nType d'équipement :")
-    print("1. Routeur")
-    print("2. Switch")
-    print("3. Serveur")
-    print("4. Terminal")
-    print("5. Point d'accès Wi-Fi")
-    print("6. Firewall")
-
-    choix = input("Choix : ")
-
-    nom = input("Nom : ")
-    adresse_ip = input("Adresse IP : ")
-    marque = input("Marque : ")
-
-    equipement = None
-
-    if choix == "1":
-        nombre_ports = saisir_entier("Nombre de ports : ")
-        equipement = Routeur(nom, adresse_ip, marque, nombre_ports)
-
-    elif choix == "2":
-        nombre_ports = saisir_entier("Nombre de ports : ")
-        equipement = Switch(nom, adresse_ip, marque, nombre_ports)
-
-    elif choix == "3":
-        equipement = Serveur(nom, adresse_ip, marque)
-
-    elif choix == "4":
-        type_terminal = input("Type de terminal (PC, smartphone, imprimante...) : ")
-        utilisateur = input("Utilisateur : ")
-        equipement = Terminal(nom, adresse_ip, marque, type_terminal, utilisateur)
-
-    elif choix == "5":
-        ssid = input("SSID : ")
-        frequence = input("Fréquence Wi-Fi (ex: 2.4 ou 5) : ")
-        equipement = PointAccesWifi(nom, adresse_ip, marque, ssid, frequence)
-
-    elif choix == "6":
-        equipement = FirewallPrincipal(adresse_ip, nom, marque)
-
-    else:
-        print("Choix invalide.")
-        return
-
-    equipement.activer()
-    topologie.ajouter_equipement(equipement)
-    print(f"{nom} ajouté avec succès.")
-
-
-def afficher_infos_equipement(topologie):
-    nom = input("Nom de l'équipement : ")
-    equipement = topologie.trouver_equipement_par_nom(nom)
-
-    if equipement is None:
-        print("Équipement introuvable.")
-        return
-
-    print("\n===== INFORMATIONS =====")
-    equipement.afficher_infos()
-
-
-def connecter_equipements(topologie):
-    afficher_liste_equipements(topologie)
-
-    nom1 = input("\nNom du premier équipement : ")
-    nom2 = input("Nom du second équipement : ")
-
-    succes = topologie.connecter(nom1, nom2)
-
-    if succes:
-        print("Connexion réussie.")
-    else:
-        print("Connexion impossible. Vérifiez les noms ou les interfaces disponibles.")
-
-
-def supprimer_equipement(topologie):
-    nom = input("Nom de l'équipement à supprimer : ")
-
-    if topologie.supprimer_equipement(nom):
-        print("Équipement supprimé avec succès.")
-    else:
-        print("Équipement introuvable.")
-
-
-def gestion_equipements(topologie):
-    while True:
-        menu_equipement()
         choix = input("Choix : ")
 
-        if choix == "1":
-            ajouter_equipement(topologie)
-        elif choix == "2":
-            afficher_infos_equipement(topologie)
-        elif choix == "3":
-            connecter_equipements(topologie)
-        elif choix == "4":
-            supprimer_equipement(topologie)
-        elif choix == "5":
-            afficher_liste_equipements(topologie)
-        elif choix == "0":
-            break
-        else:
-            print("Choix invalide.")
+        nom = input("Nom : ")
+        adresse_ip = input("Adresse IP : ")
+        marque = input("Marque : ")
 
-        pause()
-
-
-# ==============================
-# GESTION DU RÉSEAU
-# ==============================
-
-def afficher_topologie(topologie):
-    print("\n===== TOPOLOGIE RÉSEAU =====")
-    afficher_liste_equipements(topologie)
-    afficher_liste_liens(topologie)
-
-
-def envoyer_paquet(topologie, moniteur):
-    print("\n===== ENVOI D'UN PAQUET =====")
-
-    source = input("Adresse IP source : ")
-    destination = input("Adresse IP destination : ")
-
-    print("\nService à simuler :")
-    print("1. web")
-    print("2. https")
-    print("3. ping")
-    print("4. dns")
-    print("5. fichier")
-
-    choix_service = input("Choix : ")
-
-    services = {
-        "1": "web",
-        "2": "https",
-        "3": "ping",
-        "4": "dns",
-        "5": "fichier"
-    }
-
-    service = services.get(choix_service, "web")
-
-    paquet = Paquet(
-        adresse_source=source,
-        adresse_destination=destination,
-        service=service
-    )
-
-    resultat = topologie.envoyer_paquet(paquet)
-    enregistrer_resultat_moniteur(moniteur, paquet, resultat)
-
-    print("\n===== RÉSULTAT =====")
-    print(resultat["message"])
-
-    if resultat["chemin"]:
-        chemin = " -> ".join(equipement.nom for equipement in resultat["chemin"])
-        print(f"Chemin : {chemin}")
-
-    print(f"Latence totale : {resultat['latence']} ms")
-    print(f"Débit du chemin : {resultat['debit']} Mbps")
-
-
-def desactiver_equipement(topologie):
-    nom = input("Nom de l'équipement à désactiver : ")
-    equipement = topologie.trouver_equipement_par_nom(nom)
-
-    if equipement:
-        equipement.desactiver()
-    else:
-        print("Équipement introuvable.")
-
-
-def activer_equipement(topologie):
-    nom = input("Nom de l'équipement à activer : ")
-    equipement = topologie.trouver_equipement_par_nom(nom)
-
-    if equipement:
-        equipement.activer()
-    else:
-        print("Équipement introuvable.")
-
-
-def supprimer_route(topologie):
-    nom = input("Nom du routeur : ")
-    routeur = topologie.trouver_equipement_par_nom(nom)
-
-    if routeur is None:
-        print("Routeur introuvable.")
-        return
-
-    if not hasattr(routeur, "supprimer_route"):
-        print("Cet équipement ne gère pas de table de routage.")
-        return
-
-    destination = input("Destination à supprimer de la table de routage : ")
-    routeur.supprimer_route(destination)
-
-
-def ajouter_interface(topologie):
-    nom = input("Nom de l'équipement : ")
-    equipement = topologie.trouver_equipement_par_nom(nom)
-
-    if equipement is None:
-        print("Équipement introuvable.")
-        return
-
-    if not hasattr(equipement, "ajouter_interface"):
-        print("Cet équipement ne possède pas de méthode ajouter_interface().")
-        return
-
-    interface = input("Nom de l'interface : ")
-    equipement.ajouter_interface(interface)
-
-
-def ajouter_vlan(topologie):
-    nom = input("Nom du switch : ")
-    switch = topologie.trouver_equipement_par_nom(nom)
-
-    if switch is None:
-        print("Switch introuvable.")
-        return
-
-    if not hasattr(switch, "ajouter_vlan"):
-        print("Cet équipement ne gère pas les VLANs.")
-        return
-
-    vlan_id = saisir_entier("ID du VLAN : ")
-    nom_vlan = input("Nom du VLAN : ")
-
-    switch.ajouter_vlan(vlan_id, nom_vlan)
-
-
-def supprimer_vlan(topologie):
-    nom = input("Nom du switch : ")
-    switch = topologie.trouver_equipement_par_nom(nom)
-
-    if switch is None:
-        print("Switch introuvable.")
-        return
-
-    if not hasattr(switch, "supprimer_vlan"):
-        print("Cet équipement ne gère pas les VLANs.")
-        return
-
-    vlan_id = saisir_entier("ID du VLAN à supprimer : ")
-    switch.supprimer_vlan(vlan_id)
-
-
-def ajouter_service(topologie):
-    nom = input("Nom du serveur : ")
-    serveur = topologie.trouver_equipement_par_nom(nom)
-
-    if serveur is None:
-        print("Serveur introuvable.")
-        return
-
-    if not hasattr(serveur, "ajouter_service"):
-        print("Cet équipement ne gère pas les services.")
-        return
-
-    service = input("Nom du service : ")
-    serveur.ajouter_service(service)
-
-
-def supprimer_service(topologie):
-    nom = input("Nom du serveur : ")
-    serveur = topologie.trouver_equipement_par_nom(nom)
-
-    if serveur is None:
-        print("Serveur introuvable.")
-        return
-
-    if not hasattr(serveur, "supprimer_service"):
-        print("Cet équipement ne gère pas les services.")
-        return
-
-    service = input("Nom du service à supprimer : ")
-    serveur.supprimer_service(service)
-
-
-def gestion_reseau(topologie, moniteur):
-    while True:
-        menu_reseau()
-        choix = input("Choix : ")
+        equipement = None
 
         if choix == "1":
-            afficher_topologie(topologie)
+            ports = self.saisir_entier("Nombre de ports : ")
+            equipement = Routeur(nom, adresse_ip, marque, ports)
+
         elif choix == "2":
-            envoyer_paquet(topologie, moniteur)
+            ports = self.saisir_entier("Nombre de ports : ")
+            equipement = Switch(nom, adresse_ip, marque, ports)
+
         elif choix == "3":
-            desactiver_equipement(topologie)
+            equipement = Serveur(nom, adresse_ip, marque)
+
         elif choix == "4":
-            activer_equipement(topologie)
+            type_terminal = input("Type de terminal : ")
+            utilisateur = input("Utilisateur : ")
+            equipement = Terminal(nom, adresse_ip, marque, type_terminal, utilisateur)
+
         elif choix == "5":
-            supprimer_route(topologie)
+            ssid = input("SSID : ")
+            frequence = input("Fréquence Wi-Fi : ")
+            equipement = PointAccesWifi(nom, adresse_ip, marque, ssid, frequence)
+
         elif choix == "6":
-            ajouter_interface(topologie)
-        elif choix == "7":
-            ajouter_vlan(topologie)
-        elif choix == "8":
-            supprimer_vlan(topologie)
-        elif choix == "9":
-            ajouter_service(topologie)
-        elif choix == "10":
-            supprimer_service(topologie)
-        elif choix == "0":
-            break
+            equipement = FirewallPrincipal(adresse_ip, nom, marque)
+
         else:
             print("Choix invalide.")
+            return
 
-        pause()
+        equipement.activer()
+        self.topologie.ajouter_equipement(equipement)
 
+        if isinstance(equipement, FirewallPrincipal):
+            self.firewall_principal = equipement
 
-# ==============================
-# MONITORING
-# ==============================
+        print(f"{nom} ajouté avec succès.")
 
-def gestion_monitoring(moniteur):
-    while True:
-        menu_monitoring()
-        choix = input("Choix : ")
+    def afficher_equipements(self):
+        if not self.topologie.equipements:
+            print("Aucun équipement dans le réseau.")
+            return
 
-        if choix == "1":
-            moniteur.afficher_statistiques()
-        elif choix == "2":
-            moniteur.afficher_historique()
-        elif choix == "3":
-            moniteur.generer_rapport()
-        elif choix == "0":
-            break
+        print("\n===== ÉQUIPEMENTS =====")
+        for equipement in self.topologie.equipements:
+            print(f"- {equipement}")
+
+    def afficher_infos_equipement(self):
+        nom = input("Nom de l'équipement : ")
+        equipement = self.topologie.trouver_equipement_par_nom(nom)
+
+        if equipement is None:
+            print("Équipement introuvable.")
+            return
+
+        equipement.afficher_infos()
+
+    def supprimer_equipement(self):
+        nom = input("Nom de l'équipement à supprimer : ")
+
+        if self.topologie.supprimer_equipement(nom):
+            print("Équipement supprimé.")
         else:
-            print("Choix invalide.")
+            print("Équipement introuvable.")
 
-        pause()
+    def activer_equipement(self):
+        nom = input("Nom de l'équipement : ")
+        equipement = self.topologie.trouver_equipement_par_nom(nom)
 
-
-# ==============================
-# SÉCURITÉ
-# ==============================
-
-def ajouter_regle_firewall(firewall):
-    print("\n===== AJOUT D'UNE RÈGLE FIREWALL =====")
-
-    ip_source = input("IP source ou début de plage à filtrer (laisser vide pour toutes) : ")
-    if ip_source.strip() == "":
-        ip_source = None
-
-    protocole = choisir_protocole()
-
-    port_texte = input("Port destination (laisser vide pour tous) : ")
-    if port_texte.strip() == "":
-        port_destination = None
-    else:
-        try:
-            port_destination = int(port_texte)
-        except ValueError:
-            print("Port invalide. Le port sera ignoré.")
-            port_destination = None
-
-    action = choisir_action()
-
-    login = input("Login administrateur : ")
-    password = input("Mot de passe : ")
-
-    regle = RegleFiltrage(
-        ip_source=ip_source,
-        protocole=protocole,
-        port_destination=port_destination,
-        action=action
-    )
-
-    if firewall.ajouter_regle(regle, login, password):
-        print("Règle ajoutée avec succès.")
-    else:
-        print("Échec : authentification incorrecte.")
-
-
-def afficher_journal_firewall(firewall):
-    print("\n===== JOURNAL FIREWALL =====")
-    print(firewall.journal.afficher())
-
-
-def afficher_regles_firewall(firewall):
-    print("\n===== RÈGLES FIREWALL =====")
-
-    if not firewall.regles:
-        print("Aucune règle configurée.")
-        return
-
-    for index, regle in enumerate(firewall.regles, start=1):
-        print(f"{index}. {regle}")
-
-
-def gestion_securite(firewall):
-    while True:
-        menu_securite()
-        choix = input("Choix : ")
-
-        if choix == "1":
-            ajouter_regle_firewall(firewall)
-        elif choix == "2":
-            afficher_journal_firewall(firewall)
-        elif choix == "3":
-            afficher_regles_firewall(firewall)
-        elif choix == "0":
-            break
+        if equipement:
+            equipement.activer()
         else:
-            print("Choix invalide.")
+            print("Équipement introuvable.")
 
-        pause()
+    def desactiver_equipement(self):
+        nom = input("Nom de l'équipement : ")
+        equipement = self.topologie.trouver_equipement_par_nom(nom)
 
+        if equipement:
+            equipement.desactiver()
+        else:
+            print("Équipement introuvable.")
 
-# ==============================
-# INITIALISATION DÉMO
-# ==============================
+    # =========================
+    # TOPOLOGIE / RÉSEAU
+    # =========================
 
-def initialiser_reseau_demo(topologie):
-    """
-    Crée une petite topologie de démonstration pour tester rapidement le projet.
-    """
-    client = Terminal("Client-1", "192.168.1.10", "Dell", "PC", "Utilisateur")
-    switch = Switch("SW-1", "192.168.1.2", "Cisco", 24)
-    serveur = Serveur("SRV-1", "192.168.1.20", "HP")
-    firewall = FirewallPrincipal("192.168.1.254", "FW-1", "Cisco")
+    def connecter_equipements(self):
+        self.afficher_equipements()
 
-    client.activer()
-    switch.activer()
-    serveur.activer()
-    firewall.activer()
+        nom1 = input("\nPremier équipement : ")
+        nom2 = input("Second équipement : ")
 
-    topologie.ajouter_equipement(client)
-    topologie.ajouter_equipement(switch)
-    topologie.ajouter_equipement(firewall)
-    topologie.ajouter_equipement(serveur)
+        if self.topologie.connecter(nom1, nom2):
+            print("Connexion réussie.")
+        else:
+            print("Connexion impossible.")
 
-    topologie.connecter("Client-1", "SW-1")
-    topologie.connecter("SW-1", "FW-1")
-    topologie.connecter("FW-1", "SRV-1")
+    def afficher_topologie(self):
+        print("\n===== TOPOLOGIE =====")
 
-    return firewall
+        self.afficher_equipements()
 
+        print("\n===== LIENS =====")
+        if not self.topologie.liens:
+            print("Aucun lien.")
+            return
 
-# ==============================
-# PROGRAMME PRINCIPAL
-# ==============================
+        for lien in self.topologie.liens:
+            print(
+                f"- {lien.equipement1.nom} <--> {lien.equipement2.nom} "
+                f"({lien.bande_passante} Mbps, {lien.latence} ms)"
+            )
+
+    def envoyer_paquet(self):
+        source = input("Adresse IP source : ")
+        destination = input("Adresse IP destination : ")
+
+        print("\nService :")
+        print("1. web")
+        print("2. https")
+        print("3. ping")
+        print("4. dns")
+        print("5. fichier")
+
+        services = {
+            "1": "web",
+            "2": "https",
+            "3": "ping",
+            "4": "dns",
+            "5": "fichier"
+        }
+
+        service = services.get(input("Choix : "), "web")
+
+        paquet = Paquet(
+            adresse_source=source,
+            adresse_destination=destination,
+            service=service
+        )
+
+        resultat = self.topologie.envoyer_paquet(paquet)
+        self.enregistrer_monitoring(paquet, resultat)
+
+        print("\n===== RÉSULTAT =====")
+        print(resultat["message"])
+
+        if resultat["chemin"]:
+            chemin = " -> ".join(equipement.nom for equipement in resultat["chemin"])
+            print(f"Chemin : {chemin}")
+
+        print(f"Latence : {resultat['latence']} ms")
+        print(f"Débit : {resultat['debit']} Mbps")
+
+    # =========================
+    # ROUTEUR / VLAN / SERVICES
+    # =========================
+
+    def supprimer_route(self):
+        routeur = self.demander_equipement("Nom du routeur : ")
+
+        if routeur and hasattr(routeur, "supprimer_route"):
+            destination = input("Destination à supprimer : ")
+            routeur.supprimer_route(destination)
+        else:
+            print("Cet équipement ne gère pas les routes.")
+
+    def ajouter_interface(self):
+        equipement = self.demander_equipement("Nom de l'équipement : ")
+
+        if equipement and hasattr(equipement, "ajouter_interface"):
+            interface = input("Nom de l'interface : ")
+            equipement.ajouter_interface(interface)
+        else:
+            print("Cet équipement ne gère pas les interfaces.")
+
+    def ajouter_vlan(self):
+        switch = self.demander_equipement("Nom du switch : ")
+
+        if switch and hasattr(switch, "ajouter_vlan"):
+            vlan_id = self.saisir_entier("ID VLAN : ")
+            nom_vlan = input("Nom VLAN : ")
+            switch.ajouter_vlan(vlan_id, nom_vlan)
+        else:
+            print("Cet équipement ne gère pas les VLANs.")
+
+    def supprimer_vlan(self):
+        switch = self.demander_equipement("Nom du switch : ")
+
+        if switch and hasattr(switch, "supprimer_vlan"):
+            vlan_id = self.saisir_entier("ID VLAN : ")
+            switch.supprimer_vlan(vlan_id)
+        else:
+            print("Cet équipement ne gère pas les VLANs.")
+
+    def ajouter_service(self):
+        serveur = self.demander_equipement("Nom du serveur : ")
+
+        if serveur and hasattr(serveur, "ajouter_service"):
+            service = input("Nom du service : ")
+            serveur.ajouter_service(service)
+        else:
+            print("Cet équipement ne gère pas les services.")
+
+    def supprimer_service(self):
+        serveur = self.demander_equipement("Nom du serveur : ")
+
+        if serveur and hasattr(serveur, "supprimer_service"):
+            service = input("Service à supprimer : ")
+            serveur.supprimer_service(service)
+        else:
+            print("Cet équipement ne gère pas les services.")
+
+    def demander_equipement(self, message):
+        nom = input(message)
+        equipement = self.topologie.trouver_equipement_par_nom(nom)
+
+        if equipement is None:
+            print("Équipement introuvable.")
+
+        return equipement
+
+    # =========================
+    # SÉCURITÉ
+    # =========================
+
+    def ajouter_regle_firewall(self):
+        firewall = self.firewall_principal
+
+        if firewall is None:
+            print("Aucun firewall principal configuré.")
+            return
+
+        ip_source = input("IP source ou plage à filtrer, vide pour toutes : ")
+
+        if ip_source.strip() == "":
+            ip_source = None
+
+        protocole = self.choisir_protocole()
+
+        port = input("Port destination, vide pour tous : ")
+        port_destination = int(port) if port.strip().isdigit() else None
+
+        action = self.choisir_action()
+
+        login = input("Login admin : ")
+        password = input("Mot de passe : ")
+
+        regle = RegleFiltrage(
+            ip_source=ip_source,
+            protocole=protocole,
+            port_destination=port_destination,
+            action=action
+        )
+
+        if firewall.ajouter_regle(regle, login, password):
+            print("Règle ajoutée.")
+        else:
+            print("Authentification incorrecte.")
+
+    def afficher_journal_firewall(self):
+        if self.firewall_principal:
+            print(self.firewall_principal.journal.afficher())
+        else:
+            print("Aucun firewall principal.")
+
+    def afficher_regles_firewall(self):
+        if not self.firewall_principal:
+            print("Aucun firewall principal.")
+            return
+
+        if not self.firewall_principal.regles:
+            print("Aucune règle configurée.")
+            return
+
+        for index, regle in enumerate(self.firewall_principal.regles, start=1):
+            print(f"{index}. {regle}")
+
+    # =========================
+    # MONITORING
+    # =========================
+
+    def enregistrer_monitoring(self, paquet, resultat):
+        """
+        Enregistre un paquet dans le moniteur.
+
+        Cette méthode corrige l'incompatibilité entre MoniteurReseau
+        et Paquet : MoniteurReseau attend source/destination, alors que
+        Paquet possède adresse_source/adresse_destination.
+        """
+
+        self.moniteur.paquets_envoyes += 1
+
+        if not resultat["succes"]:
+            self.moniteur.paquets_perdus += 1
+
+        self.moniteur.debit_total += paquet.taille
+
+        protocole = paquet.protocole.value if isinstance(paquet.protocole, Enum) else paquet.protocole
+
+        evenement = {
+            "date": datetime.now(),
+            "source": paquet.adresse_source,
+            "destination": paquet.adresse_destination,
+            "protocole": protocole,
+            "taille": paquet.taille,
+            "message": resultat["message"]
+        }
+
+        self.moniteur.historique.append(evenement)
+
+        if len(self.moniteur.historique) > 10:
+            self.moniteur.historique.pop(0)
+
+    def afficher_statistiques(self):
+        self.moniteur.afficher_statistiques()
+
+    def afficher_historique(self):
+        self.moniteur.afficher_historique()
+
+    def generer_rapport(self):
+        self.moniteur.generer_rapport()
+
+    # =========================
+    # BOUCLES DE MENUS
+    # =========================
+
+    def gestion_equipements(self):
+        actions = {
+            "1": self.ajouter_equipement,
+            "2": self.afficher_infos_equipement,
+            "3": self.connecter_equipements,
+            "4": self.supprimer_equipement,
+            "5": self.afficher_equipements
+        }
+
+        while True:
+            self.afficher_menu("GESTION DES ÉQUIPEMENTS", {
+                "1": "Ajouter un équipement",
+                "2": "Afficher les informations d'un équipement",
+                "3": "Connecter deux équipements",
+                "4": "Supprimer un équipement",
+                "5": "Afficher tous les équipements",
+                "0": "Retour"
+            })
+
+            choix = input("Choix : ")
+
+            if choix == "0":
+                break
+
+            action = actions.get(choix)
+
+            if action:
+                action()
+            else:
+                print("Choix invalide.")
+
+            self.pause()
+
+    def gestion_reseau(self):
+        actions = {
+            "1": self.afficher_topologie,
+            "2": self.envoyer_paquet,
+            "3": self.desactiver_equipement,
+            "4": self.activer_equipement,
+            "5": self.supprimer_route,
+            "6": self.ajouter_interface,
+            "7": self.ajouter_vlan,
+            "8": self.supprimer_vlan,
+            "9": self.ajouter_service,
+            "10": self.supprimer_service
+        }
+
+        while True:
+            self.afficher_menu("GESTION DU RÉSEAU", {
+                "1": "Afficher la topologie",
+                "2": "Envoyer un paquet",
+                "3": "Désactiver un équipement",
+                "4": "Activer un équipement",
+                "5": "Supprimer une route",
+                "6": "Ajouter une interface",
+                "7": "Ajouter un VLAN",
+                "8": "Supprimer un VLAN",
+                "9": "Ajouter un service",
+                "10": "Supprimer un service",
+                "0": "Retour"
+            })
+
+            choix = input("Choix : ")
+
+            if choix == "0":
+                break
+
+            action = actions.get(choix)
+
+            if action:
+                action()
+            else:
+                print("Choix invalide.")
+
+            self.pause()
+
+    def gestion_monitoring(self):
+        actions = {
+            "1": self.afficher_statistiques,
+            "2": self.afficher_historique,
+            "3": self.generer_rapport
+        }
+
+        while True:
+            self.afficher_menu("MONITORING", {
+                "1": "Afficher les statistiques",
+                "2": "Afficher l'historique",
+                "3": "Générer le rapport",
+                "0": "Retour"
+            })
+
+            choix = input("Choix : ")
+
+            if choix == "0":
+                break
+
+            action = actions.get(choix)
+
+            if action:
+                action()
+            else:
+                print("Choix invalide.")
+
+            self.pause()
+
+    def gestion_securite(self):
+        actions = {
+            "1": self.ajouter_regle_firewall,
+            "2": self.afficher_journal_firewall,
+            "3": self.afficher_regles_firewall
+        }
+
+        while True:
+            self.afficher_menu("SÉCURITÉ", {
+                "1": "Ajouter une règle de filtrage",
+                "2": "Afficher le journal du firewall",
+                "3": "Afficher les règles du firewall",
+                "0": "Retour"
+            })
+
+            choix = input("Choix : ")
+
+            if choix == "0":
+                break
+
+            action = actions.get(choix)
+
+            if action:
+                action()
+            else:
+                print("Choix invalide.")
+
+            self.pause()
+
+    def lancer(self):
+        print("SIMNet initialisé.")
+        print("Topologie de démonstration : Client-1 -> SW-1 -> FW-1 -> SRV-1")
+
+        actions = {
+            "1": self.gestion_equipements,
+            "2": self.gestion_reseau,
+            "3": self.gestion_monitoring,
+            "4": self.gestion_securite
+        }
+
+        while True:
+            self.afficher_menu("SIMNET", {
+                "1": "Gestion des équipements",
+                "2": "Gestion du réseau",
+                "3": "Monitoring",
+                "4": "Sécurité",
+                "5": "Quitter"
+            })
+
+            choix = input("Choix : ")
+
+            if choix == "5":
+                print("Fermeture du simulateur SIMNet.")
+                break
+
+            action = actions.get(choix)
+
+            if action:
+                action()
+            else:
+                print("Choix invalide.")
+
+            self.pause()
+
 
 def main():
-    topologie = Topologie()
-    moniteur = MoniteurReseau()
-
-    firewall_principal = initialiser_reseau_demo(topologie)
-
-    print("SIMNet initialisé avec une topologie de démonstration.")
-    print("Client-1 -> SW-1 -> FW-1 -> SRV-1")
-
-    while True:
-        menu_principal()
-        choix = input("Choix : ")
-
-        if choix == "1":
-            gestion_equipements(topologie)
-        elif choix == "2":
-            gestion_reseau(topologie, moniteur)
-        elif choix == "3":
-            gestion_monitoring(moniteur)
-        elif choix == "4":
-            gestion_securite(firewall_principal)
-        elif choix == "5":
-            print("Fermeture du simulateur SIMNet.")
-            break
-        else:
-            print("Choix invalide.")
-
-        pause()
+    simulateur = SimulateurSIMNet()
+    simulateur.lancer()
 
 
 if __name__ == "__main__":
