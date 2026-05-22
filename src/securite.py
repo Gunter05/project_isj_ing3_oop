@@ -1,16 +1,14 @@
 import datetime
 from enum import Enum
 
-# ==========================================
-# CONVENTION OBLIGATOIRE : PROTOCOLES EN ENUM
-# ==========================================
+
 class Protocole(Enum):
     """ Énumération des protocoles réseaux autorisés dans SIMNet pour standardiser les types de paquets inspectés. """
     TCP = "TCP"
     UDP = "UDP"
     ICMP = "ICMP"
-    HTTP = "HTTP"
-    HTTPS = "HTTPS"
+   # HTTP = "HTTP"
+   # HTTPS = "HTTPS"
 
 class Action(Enum):
     """
@@ -86,9 +84,8 @@ class Authentification:
         self.est_authentifie = False
 
 
-# ==========================================
 # SÉCURITÉ IMPORTATION (Évite les blocages d'intégration)
-# ==========================================
+
 try:
     # On tente d'importer la classe mère Equipement rédigée par le Membre A
     from equipements import Equipement
