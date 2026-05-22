@@ -1,11 +1,39 @@
 from abc import ABC, abstractmethod
+from utils import valider_adresse_ip
+
 class Equipement(ABC):
     """Classe abstraite représentant un équipement réseau"""
-    def __init__(self, nom, adresse_ip, marque):
+    def __init__(self, nom, adresse_ip, marque, nombre_interfaces=1):
         self._nom = nom
-        self._adresse_ip = adresse_ip
+        self._adresse_ip = valider_adresse_ip(adresse_ip)
         self._marque = marque
         self._statut = False
+
+        self._nombre_interfaces = nombre_interfaces
+        self._interfaces_utilisees = 0
+
+    @property
+    def nombre_interfaces(self):
+        return self._nombre_interfaces
+
+    @property
+    def interfaces_utilisees(self):
+        return self._interfaces_utilisees
+
+    def interface_disponible(self):
+        return self._interfaces_utilisees < self._nombre_interfaces
+
+    def reserver_interface(self):
+        if self.interface_disponible():
+            self._interfaces_utilisees += 1
+            return True
+        return False
+
+    def liberer_interface(self):
+        if self._interfaces_utilisees > 0:
+            self._interfaces_utilisees -= 1
+            return True
+        return False
 
     @property
     def nom(self):
@@ -50,7 +78,7 @@ class Equipement(ABC):
 class Routeur(Equipement):
     """Classe représentant un routeur réseau"""
     def __init__(self, nom, adresse_ip, marque, nombre_ports):
-        super().__init__(nom, adresse_ip, marque)
+        super().__init__(nom, adresse_ip, marque, nombre_interfaces=nombre_ports)
         self._nombre_ports = nombre_ports
         self._table_routage = {}
         self._interfaces = []
@@ -92,7 +120,7 @@ class Routeur(Equipement):
 class Switch(Equipement):
     """Classe représentant un switch réseau"""
     def __init__(self, nom, adresse_ip, marque, nombre_ports):
-        super().__init__(nom, adresse_ip, marque)
+        super().__init__(nom, adresse_ip, marque, nombre_interfaces=nombre_ports)
         self._nombre_ports = nombre_ports
         self._vlans = []
         
@@ -125,7 +153,7 @@ class Switch(Equipement):
 class Serveur(Equipement):
     """Classe représentant un serveur réseau"""
     def __init__(self, nom, adresse_ip, marque):
-        super().__init__(nom, adresse_ip, marque)
+        super().__init__(nom, adresse_ip, marque, nombre_interfaces=1)
         self._services = []
         
     def afficher_infos(self):
@@ -150,64 +178,11 @@ class Serveur(Equipement):
 
 
 
-class Firewall(Equipement):
-    """Classe représentant un firewall réseau"""
-    def __init__(self, nom, adresse_ip, marque, login, password):
-        super().__init__(nom, adresse_ip, marque)
-        self._regles = []
-        self._journal = []
-        self._login = login
-        self._password = password
-
-    def afficher_infos(self):
-        """Affiche les informations du firewall""" 
-        super().afficher_infos()
-        print(f"Nombres de règles : {len(self._regles)}")    
-        print(f"Nombre d'entrées dans le journal : {len(self._journal)}")
-
-
-    def authentifier(self, login, password):
-        """Authentifie l'utilisateur pour accéder au firewall"""
-        if login == self._login and password == self._password:
-            print(f"Authentification réussie pour {self._nom}.")
-            return True
-        else:
-            print(f"Authentification échouée pour {self._nom}.")
-            return False
-    
-    
-    def ajouter_regle(self, regle):
-        """Ajoute une règle au firewall"""
-        self._regles.append(regle)
-        print(f"Règle {regle} ajoutée au firewall {self._nom}.")
-
-
-    def supprimer_regle(self, regle):
-        """Supprime une règle du firewall"""
-        if regle in self._regles:
-            self._regles.remove(regle)
-            print(f"Règle {regle} supprimée du firewall {self._nom}.")
-        else:
-            print(f"Règle {regle} introuvable sur le firewall {self._nom}.")     
-
-
-    def filtrer(self, paquet):
-        """Filtre un paquet en fonction des règles du firewall"""
-        for regle in self._regles:
-            if regle.appliquer(paquet):
-                self._journal.append(f"Paquet {paquet} bloqué par la règle {regle}.")
-                print(f"Paquet {paquet} bloqué par la règle {regle}.")
-                return False
-        self._journal.append(f"Paquet {paquet} autorisé.")
-        print(f"Paquet {paquet} autorisé.")
-        return True
-    
-
 
 class PointAccesWifi(Equipement):
     """Classe représentant un point d'accès Wi-Fi"""
     def __init__(self, nom, adresse_ip, marque, ssid, frequence):
-        super().__init__(nom, adresse_ip, marque)
+        super().__init__(nom, adresse_ip, marque, nombre_interfaces=10)
         self._ssid = ssid
         self._clients_connectes = []
         self._frequence = frequence 
@@ -238,7 +213,7 @@ class PointAccesWifi(Equipement):
 class Terminal(Equipement):
     """Classe représentant un terminal client"""
     def __init__(self, nom, adresse_ip, marque, type_terminal, utilisateur):
-        super().__init__(nom, adresse_ip, marque)
+        super().__init__(nom, adresse_ip, marque, nombre_interfaces=1)
         self._type_terminal = type_terminal
         self._utilisateur = utilisateur
         

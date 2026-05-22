@@ -1,3 +1,5 @@
+from utils import valider_adresse_ip
+
 try:
     from securite import Protocole
 except ImportError:
@@ -89,7 +91,7 @@ class Paquet:
             adresse_source (str): Adresse IP de l'expéditeur.
             adresse_destination (str): Adresse IP du destinataire.
             service (str, optionnel): Type de service réseau (ex: "web", "https", "ping", "dns", "fichier"). Par défaut "web".
-            protocole (Protocole, optionnel): Protocole de transport (TCP, UDP, ICMP). Par défaut None (déduit du service).
+            protocole (Protocole, optionnel): Protocole de transport (TCP, UDP, ICMP pour ping). Par défaut None (déduit du service).
             taille (int, optionnel): Taille du paquet en octets. Par défaut None (déduite du service).
             priorite (int, optionnel): Priorité du paquet de 1 (faible) à 5 (haute). Par défaut None (déduite du service).
             port_destination (int, optionnel): Port de destination. Par défaut None (déduit du service).
@@ -100,8 +102,8 @@ class Paquet:
         Exceptions:
             ValueError: Si la priorité finale n'est pas comprise entre 1 et 5.
         """
-        self.adresse_source = adresse_source
-        self.adresse_destination = adresse_destination
+        self.adresse_source = valider_adresse_ip(adresse_source)
+        self.adresse_destination = valider_adresse_ip(adresse_destination)
         self.service = service.lower()
 
         caracteristiques = self.SERVICES.get(self.service, self.SERVICES["web"])

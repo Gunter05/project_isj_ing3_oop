@@ -110,7 +110,12 @@ class Topologie:
         Sortie:
             None.
         """
+        if self.trouver_equipement_par_ip(equipement.adresse_ip) is not None:
+            print(f"Erreur : l'adresse IP {equipement.adresse_ip} est déjà utilisée.")
+            return False
+
         self.equipements.append(equipement)
+        return True
 
     def supprimer_equipement(self, nom):
         """
@@ -124,15 +129,26 @@ class Topologie:
         """
         equipement = self.trouver_equipement_par_nom(nom)
 
-        if equipement:
-            self.equipements.remove(equipement)
-            self.liens = [
-                lien for lien in self.liens
-                if lien.equipement1 != equipement and lien.equipement2 != equipement
-            ]
-            return True
+        if equipement is None:
+            return False
 
-        return False
+        liens_a_supprimer = [
+            lien for lien in self.liens
+            if lien.equipement1 == equipement or lien.equipement2 == equipement
+        ]
+
+        for lien in liens_a_supprimer:
+            autre = lien.autre_extremite(equipement)
+            if autre:
+                autre.liberer_interface()
+
+        self.equipements.remove(equipement)
+        self.liens = [
+            lien for lien in self.liens
+            if lien not in liens_a_supprimer
+        ]
+
+        return True
 
     def trouver_equipement_par_nom(self, nom):
         """
@@ -160,7 +176,7 @@ class Topologie:
             Equipement: L'équipement correspondant s'il est trouvé, None sinon.
         """
         for equipement in self.equipements:
-            if equipement.ip == ip:
+            if equipement.adresse_ip == ip:
                 return equipement
         return None
 
@@ -186,6 +202,14 @@ class Topologie:
         if equipement1 is None or equipement2 is None:
             return False
 
+        if not equipement1.interface_disponible():
+            print(f"Aucune interface disponible sur {equipement1.nom}.")
+            return False
+
+        if not equipement2.interface_disponible():
+            print(f"Aucune interface disponible sur {equipement2.nom}.")
+            return False
+
         if bande_passante is None or latence is None:
             bande_passante, latence = self.determiner_caracteristiques_lien(
                 equipement1,
@@ -194,6 +218,10 @@ class Topologie:
 
         lien = Lien(equipement1, equipement2, bande_passante, latence)
         self.liens.append(lien)
+
+        equipement1.reserver_interface()
+        equipement2.reserver_interface()
+
         return True
 
     def determiner_caracteristiques_lien(self, equipement1, equipement2):
@@ -415,3 +443,21 @@ class Topologie:
             return 0
 
         return min(debits)
+
+    def supprimer_lien(self, nom1, nom2):
+        equipement1 = self.trouver_equipement_par_nom(nom1)
+        equipement2 = self.trouver_equipement_par_nom(nom2)
+
+        if equipement1 is None or equipement2 is None:
+            return False
+
+        lien = self.obtenir_lien(equipement1, equipement2)
+
+        if lien is None:
+            return False
+
+        self.liens.remove(lien)
+        equipement1.liberer_interface()
+        equipement2.liberer_interface()
+
+        return True
