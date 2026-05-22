@@ -178,59 +178,6 @@ class Serveur(Equipement):
 
 
 
-class Firewall(Equipement):
-    """Classe représentant un firewall réseau"""
-    def __init__(self, nom, adresse_ip, marque, login, password):
-        super().__init__(nom, adresse_ip, marque)
-        self._regles = []
-        self._journal = []
-        self._login = login
-        self._password = password
-
-    def afficher_infos(self):
-        """Affiche les informations du firewall""" 
-        super().afficher_infos()
-        print(f"Nombres de règles : {len(self._regles)}")    
-        print(f"Nombre d'entrées dans le journal : {len(self._journal)}")
-
-
-    def authentifier(self, login, password):
-        """Authentifie l'utilisateur pour accéder au firewall"""
-        if login == self._login and password == self._password:
-            print(f"Authentification réussie pour {self._nom}.")
-            return True
-        else:
-            print(f"Authentification échouée pour {self._nom}.")
-            return False
-    
-    
-    def ajouter_regle(self, regle):
-        """Ajoute une règle au firewall"""
-        self._regles.append(regle)
-        print(f"Règle {regle} ajoutée au firewall {self._nom}.")
-
-
-    def supprimer_regle(self, regle):
-        """Supprime une règle du firewall"""
-        if regle in self._regles:
-            self._regles.remove(regle)
-            print(f"Règle {regle} supprimée du firewall {self._nom}.")
-        else:
-            print(f"Règle {regle} introuvable sur le firewall {self._nom}.")     
-
-
-    def filtrer(self, paquet):
-        """Filtre un paquet en fonction des règles du firewall"""
-        for regle in self._regles:
-            if regle.appliquer(paquet):
-                self._journal.append(f"Paquet {paquet} bloqué par la règle {regle}.")
-                print(f"Paquet {paquet} bloqué par la règle {regle}.")
-                return False
-        self._journal.append(f"Paquet {paquet} autorisé.")
-        print(f"Paquet {paquet} autorisé.")
-        return True
-    
-
 
 class PointAccesWifi(Equipement):
     """Classe représentant un point d'accès Wi-Fi"""
