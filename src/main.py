@@ -74,9 +74,42 @@ def main():
                 print(equipement)
 #option 4
         elif choix == "4":
+
             source = input("Adresse IP source : ")
             destination = input("Adresse IP destination : ")
-            
+            paquet = Paquet(source,destination)
+
+            #Vérification par le firewall
+            autorise = firewall.filtrer(paquet)
+            if autorise:
+                resultat = topologie.envoyer_paquet(paquet) #transmission dans le réseau
+                moniteur.enregistrer_paquet(paquet) #enregistrement dans le monitoring
+                print(resultat["message"])
+            else:
+                moniteur.enregistrer_perte(paquet) #enregistrement dans le monitoring
+                print("Paquet bloqué par le firewall.")
+#option 5
+        elif choix == "5":
+            #Affichage des statistiques réseau
+            moniteur.afficher_statistiques()
+#option 6
+        elif choix == "6":
+            #Affichage des derniers historiques
+            moniteur.afficher_historique()
+#option 7
+        elif choix == "7":
+            moniteur.generer_rapport()
+#option 8
+        elif choix == "8":
+            print("Fermeture du simulateur.")
+            break
+
+if __name__ == "__main__":
+    main()
+        
+
+        
+
 
 
 
