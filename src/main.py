@@ -1,6 +1,6 @@
-from datetime import datetime
-from enum import Enum
-
+from datetime import datetime #récupération de la date
+from enum import Enum #pour les énumérations
+#importations des classes
 from equipements import Routeur, Switch, Serveur, PointAccesWifi, Terminal
 from topologie import Topologie
 from paquets import Paquet
@@ -275,4 +275,321 @@ class SimulateurSIMNet:
         else:
             print("Cet équipement ne gère pas les VLANs.")
 
-   
+    def supprimer_vlan(self):
+        switch = self.demander_equipement("Nom du switch : ")
+
+        if switch and hasattr(switch, "supprimer_vlan"):
+            vlan_id = self.saisir_entier("ID VLAN : ")
+            switch.supprimer_vlan(vlan_id)
+        else:
+            print("Cet équipement ne gère pas les VLANs.")
+
+    def ajouter_service(self):
+        serveur = self.demander_equipement("Nom du serveur : ")
+
+        if serveur and hasattr(serveur, "ajouter_service"):
+            service = input("Nom du service : ")
+            serveur.ajouter_service(service)
+        else:
+            print("Cet équipement ne gère pas les services.")
+
+    def supprimer_service(self):
+        serveur = self.demander_equipement("Nom du serveur : ")
+
+        if serveur and hasattr(serveur, "supprimer_service"):
+            service = input("Service à supprimer : ")
+            serveur.supprimer_service(service)
+        else:
+            print("Cet équipement ne gère pas les services.")
+
+    def demander_equipement(self, message):
+        nom = input(message)
+        equipement = self.topologie.trouver_equipement_par_nom(nom)
+
+        if equipement is None:
+            print("Équipement introuvable.")
+
+        return equipement
+
+    # =========================
+    # SÉCURITÉ
+    # =========================
+
+    def ajouter_regle_firewall(self):
+        firewall = self.firewall_principal
+
+        if firewall is None:
+            print("Aucun firewall principal configuré.")
+            return
+
+        ip_source = input("IP source ou plage à filtrer, vide pour toutes : ")
+
+        if ip_source.strip() == "":
+            ip_source = None
+
+        protocole = self.choisir_protocole()
+
+        port = input("Port destination, vide pour tous : ")
+        port_destination = int(port) if port.strip().isdigit() else None
+
+        action = self.choisir_action()
+
+        login = input("Login admin : ")
+        password = input("Mot de passe : ")
+
+        regle = RegleFiltrage(
+            ip_source=ip_source,
+            protocole=protocole,
+            port_destination=port_destination,
+            action=action
+        )
+
+        if firewall.ajouter_regle(regle, login, password):
+            print("Règle ajoutée.")
+        else:
+            print("Authentification incorrecte.")
+
+    def afficher_journal_firewall(self):
+        if self.firewall_principal:
+            print(self.firewall_principal.journal.afficher())
+        else:
+            print("Aucun firewall principal.")
+
+    def afficher_regles_firewall(self):
+        if not self.firewall_principal:
+            print("Aucun firewall principal.")
+            return
+
+        if not self.firewall_principal.regles:
+            print("Aucune règle configurée.")
+            return
+
+        for index, regle in enumerate(self.firewall_principal.regles, start=1):
+            print(f"{index}. {regle}")
+
+    # =========================
+    # MONITORING
+    # =========================
+
+    def enregistrer_monitoring(self, paquet, resultat):
+        """
+        Enregistre un paquet dans le moniteur.
+
+        Cette méthode corrige l'incompatibilité entre MoniteurReseau
+        et Paquet : MoniteurReseau attend source/destination, alors que
+        Paquet possède adresse_source/adresse_destination.
+        """
+
+        self.moniteur.paquets_envoyes += 1
+
+        if not resultat["succes"]:
+            self.moniteur.paquets_perdus += 1
+
+        self.moniteur.debit_total += paquet.taille
+
+        protocole = paquet.protocole.value if isinstance(paquet.protocole, Enum) else paquet.protocole
+
+        evenement = {
+            "date": datetime.now(),
+            "source": paquet.adresse_source,
+            "destination": paquet.adresse_destination,
+            "protocole": protocole,
+            "taille": paquet.taille,
+            "message": resultat["message"]
+        }
+
+        self.moniteur.historique.append(evenement)
+
+        if len(self.moniteur.historique) > 10:
+            self.moniteur.historique.pop(0)
+
+    def afficher_statistiques(self):
+        self.moniteur.afficher_statistiques()
+
+    def afficher_historique(self):
+        self.moniteur.afficher_historique()
+
+    def generer_rapport(self):
+        self.moniteur.generer_rapport()
+
+    # =========================
+    # BOUCLES DE MENUS
+    # =========================
+
+    def gestion_equipements(self):
+        actions = {
+            "1": self.ajouter_equipement,
+            "2": self.afficher_infos_equipement,
+            "3": self.connecter_equipements,
+            "4": self.supprimer_equipement,
+            "5": self.afficher_equipements
+        }
+
+        while True:
+            self.afficher_menu("GESTION DES ÉQUIPEMENTS", {
+                "1": "Ajouter un équipement",
+                "2": "Afficher les informations d'un équipement",
+                "3": "Connecter deux équipements",
+                "4": "Supprimer un équipement",
+                "5": "Afficher tous les équipements",
+                "0": "Retour"
+            })
+
+            choix = input("Choix : ")
+
+            if choix == "0":
+                break
+
+            action = actions.get(choix)
+
+            if action:
+                action()
+            else:
+                print("Choix invalide.")
+
+            self.pause()
+
+    def gestion_reseau(self):
+        actions = {
+            "1": self.afficher_topologie,
+            "2": self.envoyer_paquet,
+            "3": self.desactiver_equipement,
+            "4": self.activer_equipement,
+            "5": self.supprimer_route,
+            "6": self.ajouter_interface,
+            "7": self.ajouter_vlan,
+            "8": self.supprimer_vlan,
+            "9": self.ajouter_service,
+            "10": self.supprimer_service
+        }
+
+        while True:
+            self.afficher_menu("GESTION DU RÉSEAU", {
+                "1": "Afficher la topologie",
+                "2": "Envoyer un paquet",
+                "3": "Désactiver un équipement",
+                "4": "Activer un équipement",
+                "5": "Supprimer une route",
+                "6": "Ajouter une interface",
+                "7": "Ajouter un VLAN",
+                "8": "Supprimer un VLAN",
+                "9": "Ajouter un service",
+                "10": "Supprimer un service",
+                "0": "Retour"
+            })
+
+            choix = input("Choix : ")
+
+            if choix == "0":
+                break
+
+            action = actions.get(choix)
+
+            if action:
+                action()
+            else:
+                print("Choix invalide.")
+
+            self.pause()
+
+    def gestion_monitoring(self):
+        actions = {
+            "1": self.afficher_statistiques,
+            "2": self.afficher_historique,
+            "3": self.generer_rapport
+        }
+
+        while True:
+            self.afficher_menu("MONITORING", {
+                "1": "Afficher les statistiques",
+                "2": "Afficher l'historique",
+                "3": "Générer le rapport",
+                "0": "Retour"
+            })
+
+            choix = input("Choix : ")
+
+            if choix == "0":
+                break
+
+            action = actions.get(choix)
+
+            if action:
+                action()
+            else:
+                print("Choix invalide.")
+
+            self.pause()
+
+    def gestion_securite(self):
+        actions = {
+            "1": self.ajouter_regle_firewall,
+            "2": self.afficher_journal_firewall,
+            "3": self.afficher_regles_firewall
+        }
+
+        while True:
+            self.afficher_menu("SÉCURITÉ", {
+                "1": "Ajouter une règle de filtrage",
+                "2": "Afficher le journal du firewall",
+                "3": "Afficher les règles du firewall",
+                "0": "Retour"
+            })
+
+            choix = input("Choix : ")
+
+            if choix == "0":
+                break
+
+            action = actions.get(choix)
+
+            if action:
+                action()
+            else:
+                print("Choix invalide.")
+
+            self.pause()
+
+    def lancer(self):
+        print("SIMNet initialisé.")
+        print("Topologie de démonstration : Client-1 -> SW-1 -> FW-1 -> SRV-1")
+
+        actions = {
+            "1": self.gestion_equipements,
+            "2": self.gestion_reseau,
+            "3": self.gestion_monitoring,
+            "4": self.gestion_securite
+        }
+
+        while True:
+            self.afficher_menu("SIMNET", {
+                "1": "Gestion des équipements",
+                "2": "Gestion du réseau",
+                "3": "Monitoring",
+                "4": "Sécurité",
+                "5": "Quitter"
+            })
+
+            choix = input("Choix : ")
+
+            if choix == "5":
+                print("Fermeture du simulateur SIMNet.")
+                break
+
+            action = actions.get(choix)
+
+            if action:
+                action()
+            else:
+                print("Choix invalide.")
+
+            self.pause()
+
+
+def main():
+    simulateur = SimulateurSIMNet()
+    simulateur.lancer()
+
+
+if __name__ == "__main__":
+    main()
