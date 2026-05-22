@@ -1,11 +1,37 @@
 from abc import ABC, abstractmethod
 class Equipement(ABC):
     """Classe abstraite représentant un équipement réseau"""
-    def __init__(self, nom, adresse_ip, marque):
+    def __init__(self, nom, adresse_ip, marque, nombre_interfaces=1):
         self._nom = nom
         self._adresse_ip = adresse_ip
         self._marque = marque
         self._statut = False
+
+        self._nombre_interfaces = nombre_interfaces
+        self._interfaces_utilisees = 0
+
+    @property
+    def nombre_interfaces(self):
+        return self._nombre_interfaces
+
+    @property
+    def interfaces_utilisees(self):
+        return self._interfaces_utilisees
+
+    def interface_disponible(self):
+        return self._interfaces_utilisees < self._nombre_interfaces
+
+    def reserver_interface(self):
+        if self.interface_disponible():
+            self._interfaces_utilisees += 1
+            return True
+        return False
+
+    def liberer_interface(self):
+        if self._interfaces_utilisees > 0:
+            self._interfaces_utilisees -= 1
+            return True
+        return False
 
     @property
     def nom(self):
@@ -50,7 +76,7 @@ class Equipement(ABC):
 class Routeur(Equipement):
     """Classe représentant un routeur réseau"""
     def __init__(self, nom, adresse_ip, marque, nombre_ports):
-        super().__init__(nom, adresse_ip, marque)
+        super().__init__(nom, adresse_ip, marque, nombre_interfaces=nombre_ports)
         self._nombre_ports = nombre_ports
         self._table_routage = {}
         self._interfaces = []
@@ -92,7 +118,7 @@ class Routeur(Equipement):
 class Switch(Equipement):
     """Classe représentant un switch réseau"""
     def __init__(self, nom, adresse_ip, marque, nombre_ports):
-        super().__init__(nom, adresse_ip, marque)
+        super().__init__(nom, adresse_ip, marque, nombre_interfaces=nombre_ports)
         self._nombre_ports = nombre_ports
         self._vlans = []
         
@@ -125,7 +151,7 @@ class Switch(Equipement):
 class Serveur(Equipement):
     """Classe représentant un serveur réseau"""
     def __init__(self, nom, adresse_ip, marque):
-        super().__init__(nom, adresse_ip, marque)
+        super().__init__(nom, adresse_ip, marque, nombre_interfaces=1)
         self._services = []
         
     def afficher_infos(self):
@@ -207,7 +233,7 @@ class Firewall(Equipement):
 class PointAccesWifi(Equipement):
     """Classe représentant un point d'accès Wi-Fi"""
     def __init__(self, nom, adresse_ip, marque, ssid, frequence):
-        super().__init__(nom, adresse_ip, marque)
+        super().__init__(nom, adresse_ip, marque, nombre_interfaces=10)
         self._ssid = ssid
         self._clients_connectes = []
         self._frequence = frequence 
@@ -238,7 +264,7 @@ class PointAccesWifi(Equipement):
 class Terminal(Equipement):
     """Classe représentant un terminal client"""
     def __init__(self, nom, adresse_ip, marque, type_terminal, utilisateur):
-        super().__init__(nom, adresse_ip, marque)
+        super().__init__(nom, adresse_ip, marque, nombre_interfaces=1)
         self._type_terminal = type_terminal
         self._utilisateur = utilisateur
         
