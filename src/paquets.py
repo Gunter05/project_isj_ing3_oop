@@ -1,3 +1,5 @@
+from utils import valider_adresse_ip
+
 try:
     from securite import Protocole
 except ImportError:
@@ -100,8 +102,8 @@ class Paquet:
         Exceptions:
             ValueError: Si la priorité finale n'est pas comprise entre 1 et 5.
         """
-        self.adresse_source = adresse_source
-        self.adresse_destination = adresse_destination
+        self.adresse_source = valider_adresse_ip(adresse_source)
+        self.adresse_destination = valider_adresse_ip(adresse_destination)
         self.service = service.lower()
 
         caracteristiques = self.SERVICES.get(self.service, self.SERVICES["web"])
