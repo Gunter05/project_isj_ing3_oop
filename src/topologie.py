@@ -110,12 +110,7 @@ class Topologie:
         Sortie:
             None.
         """
-        if self.trouver_equipement_par_ip(equipement.adresse_ip) is not None:
-            print(f"Erreur : l'adresse IP {equipement.adresse_ip} est déjà utilisée.")
-            return False
-
         self.equipements.append(equipement)
-        return True
 
     def supprimer_equipement(self, nom):
         """

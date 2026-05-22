@@ -1,11 +1,9 @@
 from abc import ABC, abstractmethod
-from utils import valider_adresse_ip
-
 class Equipement(ABC):
     """Classe abstraite représentant un équipement réseau"""
     def __init__(self, nom, adresse_ip, marque, nombre_interfaces=1):
         self._nom = nom
-        self._adresse_ip = valider_adresse_ip(adresse_ip)
+        self._adresse_ip = adresse_ip
         self._marque = marque
         self._statut = False
 

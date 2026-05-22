@@ -7,8 +7,6 @@ from paquets import Paquet
 from securite import Firewall as FirewallSecurite, RegleFiltrage, Protocole, Action
 from moniteur import MoniteurReseau
 
-from utils import valider_adresse_ip
-
 
 class FirewallPrincipal(FirewallSecurite):
     """
@@ -96,15 +94,6 @@ class SimulateurSIMNet:
 
         return Action.BLOQUER
 
-    def saisir_adresse_ip(self, message):
-        while True:
-            adresse_ip = input(message)
-
-            try:
-                return valider_adresse_ip(adresse_ip)
-            except ValueError as erreur:
-                print(erreur)
-
     # =========================
     # INITIALISATION
     # =========================
@@ -146,7 +135,7 @@ class SimulateurSIMNet:
         choix = input("Choix : ")
 
         nom = input("Nom : ")
-        adresse_ip = self.saisir_adresse_ip("Adresse IP : ")
+        adresse_ip = input("Adresse IP : ")
         marque = input("Marque : ")
 
         equipement = None
@@ -180,13 +169,12 @@ class SimulateurSIMNet:
             return
 
         equipement.activer()
-        if self.topologie.ajouter_equipement(equipement):
-            print(f"{nom} ajouté avec succès.")
-        else:
-            print("Ajout impossible.")
+        self.topologie.ajouter_equipement(equipement)
 
         if isinstance(equipement, FirewallPrincipal):
             self.firewall_principal = equipement
+
+        print(f"{nom} ajouté avec succès.")
 
     def afficher_equipements(self):
         if not self.topologie.equipements:
@@ -265,8 +253,8 @@ class SimulateurSIMNet:
             )
 
     def envoyer_paquet(self):
-        source = self.saisir_adresse_ip("Adresse IP source : ")
-        destination = self.saisir_adresse_ip("Adresse IP destination : ")
+        source = input("Adresse IP source : ")
+        destination = input("Adresse IP destination : ")
 
         print("\nService :")
         print("1. web")
